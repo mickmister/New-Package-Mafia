@@ -87,12 +87,9 @@ async function postToMattermost(
 }
 
 /**
- * Post package info to Mattermost as a markdown table
+ * Render the report shared by Markdown artifacts and Mattermost posts
  */
-export async function postPackagesToMattermost(
-  packages: PackageInfo[],
-  webhookUrl: string
-): Promise<void> {
+export function renderPackageReport(packages: PackageInfo[]): string {
   const sortedPackages = sortPackagesForReport(packages);
   const date = new Date().toISOString().split("T")[0];
   const title = `## New Packages (${date})`;
@@ -109,7 +106,14 @@ export async function postPackagesToMattermost(
       .join("\n");
   }
 
-  const text = `${title}\n\n${table}${summariesSection}`;
+  return `${title}\n\n${table}${summariesSection}`;
+}
+
+export async function postPackagesToMattermost(
+  packages: PackageInfo[],
+  webhookUrl: string
+): Promise<void> {
+  const text = renderPackageReport(packages);
 
   // Mattermost supports up to 16383 characters per post
   if (text.length <= 16000) {
@@ -120,6 +124,8 @@ export async function postPackagesToMattermost(
     console.log("Successfully posted to Mattermost.");
   } else {
     // Split into multiple posts if needed
+    const title = text.split("\n")[0];
+    const table = toMarkdownTable(packages);
     await postToMattermost(webhookUrl, {
       text: title,
       username: "Package Tracker",

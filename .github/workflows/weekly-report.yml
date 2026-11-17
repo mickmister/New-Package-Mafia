@@ -1,0 +1,68 @@
+name: Weekly package report
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Generate and upload reports without publishing to Mattermost
+        type: boolean
+        required: true
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-package-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Scheduled runs publish; manual runs default to a secret-free dry run.
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm check-types
+
+      - name: Generate weekly report and optionally publish
+        env:
+          MATTERMOST_WEBHOOK_URL: ${{ (github.event_name == 'schedule' || !inputs.dry_run) && secrets.MATTERMOST_WEBHOOK_URL || '' }}
+        shell: bash
+        run: |
+          args=()
+          if [[ "$DRY_RUN" == "true" ]]; then
+            args+=(--dry-run)
+          elif [[ -z "$MATTERMOST_WEBHOOK_URL" ]]; then
+            echo '::error::Set the MATTERMOST_WEBHOOK_URL repository secret before publishing.'
+            exit 1
+          fi
+          pnpm exec tsx src/index.ts --provider all --range 7d --max-results 30 --changes-limit 10000 --max-pages 300 "${args[@]}"
+
+      - name: Upload report artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            out/package-report-*.csv
+            out/package-report-*.md
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Add report preview to job summary
+        run: |
+          for report in out/package-report-*.md; do
+            cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          done

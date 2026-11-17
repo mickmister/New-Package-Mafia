@@ -16,6 +16,7 @@ export interface CliArgs {
   requireDesktopApp?: boolean;
   csvFile?: string;
   aiSummaries?: boolean;
+  dryRun?: boolean;
 }
 
 export function parseCliArgs(args: string[]): CliArgs {
@@ -80,6 +81,10 @@ export function parseCliArgs(args: string[]): CliArgs {
       case "--ai-summaries":
         result.aiSummaries = true;
         break;
+
+      case "--dry-run":
+        result.dryRun = true;
+        break;
     }
   }
 
@@ -117,6 +122,7 @@ Options:
   --require-desktop-app   Only show Rust crates that look like actual Tauri/GPUI desktop apps
   --csv <path>            Process an existing CSV instead of searching for new packages
   --ai-summaries          Prompt to generate AI summaries (default: off)
+  --dry-run              Generate CSV and Markdown without posting to Mattermost
 
 Examples:
   # Interactive mode (prompts for all options)

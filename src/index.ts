@@ -1,6 +1,6 @@
 import * as clack from "@clack/prompts";
 import { getRecentPackages, type PackageInfo, type PackageProvider } from "./get-recent-packages.js";
-import { postPackagesToMattermost } from "./mattermost-post.js";
+import { postPackagesToMattermost, renderPackageReport } from "./mattermost-post.js";
 import { parseCliArgs, printHelp } from "./cli-args.js";
 import { parseDateRange, formatDaysAsRange } from "./date-parser.js";
 import { isPackageProvider, PACKAGE_PROVIDERS } from "./package-types.js";
@@ -169,11 +169,13 @@ async function main() {
     return;
   }
 
-  const webhookUrl = process.env.MATTERMOST_WEBHOOK_URL;
+  const webhookUrl = args.dryRun ? undefined : process.env.MATTERMOST_WEBHOOK_URL;
 
   clack.intro("Package Registry Search");
 
-  if (!webhookUrl) {
+  if (args.dryRun) {
+    clack.log.info("Dry run: generating reports without posting to Mattermost");
+  } else if (!webhookUrl) {
     clack.log.warn("MATTERMOST_WEBHOOK_URL not set - results will not be posted to Mattermost");
   } else {
     clack.log.info("Results will be posted to Mattermost");
@@ -240,6 +242,7 @@ async function main() {
       const newCsvPath = `out/package-report-${Date.now()}.csv`;
       const csvContent = generateCsv(packages);
       await writeFile(newCsvPath, csvContent, "utf-8");
+      await writeFile(newCsvPath.replace(/\.csv$/, ".md"), renderPackageReport(packages), "utf-8");
       clack.log.info(`New CSV file saved: ${newCsvPath}`);
 
       if (webhookUrl) {
@@ -425,8 +428,6 @@ async function main() {
 
     if (packages.length === 0) {
       clack.log.warn("No new packages found matching your criteria.");
-      clack.outro("Done!");
-      return;
     }
 
     clack.log.success(`Found ${packages.length} package(s)!`);
@@ -473,6 +474,7 @@ async function main() {
     const csvPath = `out/package-report-${Date.now()}.csv`;
     const csvContent = generateCsv(packages);
     await writeFile(csvPath, csvContent, "utf-8");
+    await writeFile(csvPath.replace(/\.csv$/, ".md"), renderPackageReport(packages), "utf-8");
     clack.log.info(`CSV file saved: ${csvPath}`);
 
     if (webhookUrl) {
