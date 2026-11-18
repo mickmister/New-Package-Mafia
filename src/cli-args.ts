@@ -122,7 +122,7 @@ Options:
   --require-desktop-app   Only show Rust crates that look like actual Tauri/GPUI desktop apps
   --csv <path>            Process an existing CSV instead of searching for new packages
   --ai-summaries          Prompt to generate AI summaries (default: off)
-  --dry-run              Generate CSV and Markdown without posting to Mattermost
+  --dry-run              Generate CSV and Markdown without posting to any destination
 
 Examples:
   # Interactive mode (prompts for all options)
@@ -148,7 +148,9 @@ Examples:
 
 Environment:
   MATTERMOST_WEBHOOK_URL  Optional: Webhook URL for posting results to Mattermost
-                          If not set, results will only be displayed locally
+  DISCORD_WEBHOOK_URL     Optional: Webhook URL for posting results to Discord
+                          Both destinations receive reports when both are set
+                          Without either URL, reports are only saved locally
 
 Note:
   AI summaries require Claude Code CLI to be installed and authenticated

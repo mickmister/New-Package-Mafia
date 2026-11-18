@@ -1,6 +1,8 @@
 import * as clack from "@clack/prompts";
 import { getRecentPackages, type PackageInfo, type PackageProvider } from "./get-recent-packages.js";
-import { postPackagesToMattermost, renderPackageReport } from "./mattermost-post.js";
+import { renderPackageReport } from "./mattermost-post.js";
+import { renderDiscordMessages } from "./discord-post.js";
+import { publishReport } from "./publish-report.js";
 import { parseCliArgs, printHelp } from "./cli-args.js";
 import { parseDateRange, formatDaysAsRange } from "./date-parser.js";
 import { isPackageProvider, PACKAGE_PROVIDERS } from "./package-types.js";
@@ -169,16 +171,20 @@ async function main() {
     return;
   }
 
-  const webhookUrl = args.dryRun ? undefined : process.env.MATTERMOST_WEBHOOK_URL;
+  const destinations = args.dryRun ? {} : {
+    mattermost: process.env.MATTERMOST_WEBHOOK_URL,
+    discord: process.env.DISCORD_WEBHOOK_URL,
+  };
+  const hasDestinations = Boolean(destinations.mattermost || destinations.discord);
 
   clack.intro("Package Registry Search");
 
   if (args.dryRun) {
-    clack.log.info("Dry run: generating reports without posting to Mattermost");
-  } else if (!webhookUrl) {
-    clack.log.warn("MATTERMOST_WEBHOOK_URL not set - results will not be posted to Mattermost");
+    clack.log.info("Dry run: generating reports without posting to any destination");
+  } else if (!hasDestinations) {
+    clack.log.warn("No webhook URLs configured - results will only be saved locally");
   } else {
-    clack.log.info("Results will be posted to Mattermost");
+    clack.log.info(`Results will be posted to ${[destinations.mattermost && "Mattermost", destinations.discord && "Discord"].filter(Boolean).join(" and ")}`);
   }
 
   const csvFilePath = args.csvFile?.trim() ?? "";
@@ -243,13 +249,14 @@ async function main() {
       const csvContent = generateCsv(packages);
       await writeFile(newCsvPath, csvContent, "utf-8");
       await writeFile(newCsvPath.replace(/\.csv$/, ".md"), renderPackageReport(packages), "utf-8");
+      await writeFile(newCsvPath.replace(/\.csv$/, ".discord.md"), renderDiscordMessages(packages).join("\n\n---\n\n"), "utf-8");
       clack.log.info(`New CSV file saved: ${newCsvPath}`);
 
-      if (webhookUrl) {
+      if (hasDestinations) {
         const spinner = clack.spinner();
-        spinner.start("Posting to Mattermost...");
-        await postPackagesToMattermost(packages, webhookUrl);
-        spinner.stop("Posted to Mattermost!");
+        spinner.start("Publishing report...");
+        await publishReport(packages, destinations);
+        spinner.stop("Posted to configured destinations!");
       }
 
       clack.outro("Done!");
@@ -475,12 +482,13 @@ async function main() {
     const csvContent = generateCsv(packages);
     await writeFile(csvPath, csvContent, "utf-8");
     await writeFile(csvPath.replace(/\.csv$/, ".md"), renderPackageReport(packages), "utf-8");
+    await writeFile(csvPath.replace(/\.csv$/, ".discord.md"), renderDiscordMessages(packages).join("\n\n---\n\n"), "utf-8");
     clack.log.info(`CSV file saved: ${csvPath}`);
 
-    if (webhookUrl) {
-      spinner.start("Posting to Mattermost...");
-      await postPackagesToMattermost(packages, webhookUrl);
-      spinner.stop("Posted to Mattermost!");
+    if (hasDestinations) {
+      spinner.start("Publishing report...");
+      await publishReport(packages, destinations);
+      spinner.stop("Posted to configured destinations!");
     }
 
     clack.outro("Done!");

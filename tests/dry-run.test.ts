@@ -33,14 +33,21 @@ test("dry run renders reports without calling a configured webhook", async () =>
     const { stdout } = await promisify(execFile)(process.execPath,
       ["--import", tsx, entry, "--csv", input, "--dry-run"], {
         cwd: directory,
-        env: { ...process.env, MATTERMOST_WEBHOOK_URL: `http://127.0.0.1:${address.port}` },
+        env: {
+          ...process.env,
+          MATTERMOST_WEBHOOK_URL: `http://127.0.0.1:${address.port}/mattermost`,
+          DISCORD_WEBHOOK_URL: `http://127.0.0.1:${address.port}/discord`,
+        },
         timeout: 30000,
       });
     assert.match(stdout, /Dry run/);
     assert.equal(requests, 0);
     const files = await readdir(join(directory, "out"));
     assert.equal(files.filter(file => file.endsWith(".csv")).length, 1);
-    const markdown = files.find(file => file.endsWith(".md"));
+    const discordPreview = files.find(file => file.endsWith(".discord.md"));
+    assert.ok(discordPreview);
+    assert.match(await readFile(join(directory, "out", discordPreview), "utf-8"), /rust · zeta/);
+    const markdown = files.find(file => file.endsWith(".md") && !file.endsWith(".discord.md"));
     assert.ok(markdown);
     const report = await readFile(join(directory, "out", markdown), "utf-8");
     assert.match(report, /## New Packages/);

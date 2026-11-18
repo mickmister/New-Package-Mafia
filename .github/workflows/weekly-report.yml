@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: Generate and upload reports without publishing to Mattermost
+        description: Generate and upload reports without publishing to Discord or Mattermost
         type: boolean
         required: true
         default: true
@@ -40,13 +40,14 @@ jobs:
       - name: Generate weekly report and optionally publish
         env:
           MATTERMOST_WEBHOOK_URL: ${{ (github.event_name == 'schedule' || !inputs.dry_run) && secrets.MATTERMOST_WEBHOOK_URL || '' }}
+          DISCORD_WEBHOOK_URL: ${{ (github.event_name == 'schedule' || !inputs.dry_run) && secrets.DISCORD_WEBHOOK_URL || '' }}
         shell: bash
         run: |
           args=()
           if [[ "$DRY_RUN" == "true" ]]; then
             args+=(--dry-run)
-          elif [[ -z "$MATTERMOST_WEBHOOK_URL" ]]; then
-            echo '::error::Set the MATTERMOST_WEBHOOK_URL repository secret before publishing.'
+          elif [[ -z "$MATTERMOST_WEBHOOK_URL" && -z "$DISCORD_WEBHOOK_URL" ]]; then
+            echo '::error::Set DISCORD_WEBHOOK_URL and/or MATTERMOST_WEBHOOK_URL repository secrets before publishing.'
             exit 1
           fi
           pnpm exec tsx src/index.ts --provider all --range 7d --max-results 30 --changes-limit 10000 --max-pages 300 "${args[@]}"
@@ -65,5 +66,6 @@ jobs:
       - name: Add report preview to job summary
         run: |
           for report in out/package-report-*.md; do
+            [[ "$report" == *.discord.md ]] && continue
             cat "$report" >> "$GITHUB_STEP_SUMMARY"
           done

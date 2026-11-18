@@ -15,7 +15,7 @@ const ECOSYSTEM_ORDER: Record<PackageInfo["ecosystem"], number> = {
   java: 4,
 };
 
-function sortPackagesForReport(packages: PackageInfo[]): PackageInfo[] {
+export function sortPackagesForReport(packages: PackageInfo[]): PackageInfo[] {
   return [...packages].sort((a, b) =>
     ECOSYSTEM_ORDER[a.ecosystem] - ECOSYSTEM_ORDER[b.ecosystem] ||
     a.name.localeCompare(b.name, "en", { sensitivity: "base" })
