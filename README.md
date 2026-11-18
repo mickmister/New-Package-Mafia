@@ -5,9 +5,10 @@ them to Mattermost. The combined report includes npm followed by Rust.
 
 ## Weekly GitHub Actions report
 
-`.github/workflows/weekly-report.yml` runs every **Monday at 09:00 UTC** on the
-repository's default branch. GitHub may delay scheduled runs. Each run checks
-tests and types, scans the preceding seven days, and generates CSV and Markdown
+`.github/workflows/weekly-report.yml` runs every **Monday at 11:00 AM EST (16:00 UTC)** on the
+repository's default branch. GitHub may delay scheduled runs. The schedule uses
+fixed EST (UTC-5) year-round, which is noon EDT during daylight saving time.
+Each run checks tests and types, scans the preceding seven days, and generates CSV and Markdown
 reports. The limits are 30 results **per provider**, 300 pages, and a 30-minute
 job timeout, matching the previous combined report's scan settings.
 
